@@ -25,10 +25,3 @@ unused/
 .idea/
 .vscode/
 *.swp
-
-# Build artifacts
-build/
-dist/
-*.spec
-update_temp.zip
-update_extracted/

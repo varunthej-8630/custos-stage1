@@ -34,11 +34,21 @@ def build():
     
     # 3. Run PyInstaller
     print("\n[3/3] Running PyInstaller (This may take 3-5 minutes)...")
-    import PyInstaller.__main__
     
-    # Note: We use --onedir instead of --onefile. 
-    # AI libraries like PyTorch are huge. A one-file exe would take 60 seconds to extract every time it opens.
-    # A one-dir build opens instantly.
+    # --- PYINSTALLER CRASH WORKAROUND ---
+    # PyTorch and Ultralytics are so large they crash the PyInstaller bytecode analyzer.
+    # We fix this by excluding them from analysis and copying their raw folders directly!
+    import torch
+    import ultralytics
+    import authlib
+    import cryptography
+    
+    torch_path = os.path.dirname(torch.__file__)
+    ultra_path = os.path.dirname(ultralytics.__file__)
+    auth_path = os.path.dirname(authlib.__file__)
+    crypto_path = os.path.dirname(cryptography.__file__)
+    
+    import PyInstaller.__main__
     
     args = [
         'run_server.py',
@@ -46,6 +56,16 @@ def build():
         '--onedir', 
         '--noconfirm',
         '--clean',
+        
+        # Bypass Compiler crash for large/complex modules
+        '--exclude-module=torch',
+        '--exclude-module=ultralytics',
+        '--exclude-module=authlib',
+        '--exclude-module=cryptography',
+        f'--add-data={torch_path};torch',
+        f'--add-data={ultra_path};ultralytics',
+        f'--add-data={auth_path};authlib',
+        f'--add-data={crypto_path};cryptography',
         
         # Add frontend HTML/JS/CSS
         '--add-data=frontend;frontend',

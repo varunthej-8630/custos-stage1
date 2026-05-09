@@ -10,20 +10,19 @@ echo.
 :: Check if Python is installed
 python --version >nul 2>&1
 IF %ERRORLEVEL% NEQ 0 (
-    echo [ERROR] Python is not installed or not in your PATH.
-    echo Please install Python 3.8 - 3.11 from python.org
+    echo [INFO] Python is missing. Downloading Python 3.10 automatically...
+    curl -o python_installer.exe https://www.python.org/ftp/python/3.10.11/python-3.10.11-amd64.exe
+    echo [INFO] Installing Python - Please click 'Yes' if Windows asks for permission...
+    python_installer.exe /passive InstallAllUsers=0 PrependPath=1 Include_test=0 Include_doc=0
+    echo [INFO] Python installed successfully! 
+    echo [INFO] IMPORTANT: Please CLOSE this window and double-click setup.bat again to start the app.
     pause
     exit /b
 )
 
-:: Check if venv exists, if not create it
-IF NOT EXIST "venv\Scripts\activate.bat" (
-    echo [INFO] Creating Python virtual environment...
-    python -m venv venv
-)
-
-:: Activate venv
-call venv\Scripts\activate.bat
+:: We bypass the virtual environment (venv) entirely because some Windows
+:: installations have a broken venv module that fails to install pip.
+:: Instead, we install dependencies directly to the user's main Python.
 
 :: Upgrade pip and install requirements
 echo [INFO] Checking dependencies...
