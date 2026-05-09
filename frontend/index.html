@@ -1,0 +1,1225 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>CUSTOS — Security Dashboard</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.2/socket.io.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@500;600;700;800;900&family=Barlow:wght@400;500;600;700;800&family=DM+Mono:wght@300;400;500&display=swap" rel="stylesheet">
+<style>
+:root {
+  --bg:       #f0f4f8;
+  --bg2:      #e8edf3;
+  --white:    #ffffff;
+  --card:     #ffffff;
+  --border:   rgba(0,0,0,0.06);
+  --shadow:   0 2px 12px rgba(0,0,0,0.07), 0 1px 3px rgba(0,0,0,0.05);
+  --shadow2:  0 8px 32px rgba(0,0,0,0.10), 0 2px 8px rgba(0,0,0,0.06);
+  --blue:     #3b7ff5;
+  --blue2:    #5b95f7;
+  --blue-bg:  #eef3fe;
+  --green:    #22c55e;
+  --green-bg: #f0fdf4;
+  --amber:    #f59e0b;
+  --amber-bg: #fffbeb;
+  --orange:   #f97316;
+  --orange-bg:#fff7ed;
+  --red:      #ef4444;
+  --red-bg:   #fef2f2;
+  --txt:      #1a2236;
+  --txt2:     #4a5568;
+  --txt3:     #8a96a8;
+  --mono:     'DM Mono', monospace;
+  --sans:     'Barlow', sans-serif;
+  --display:  'Barlow Condensed', sans-serif;
+  --r:        14px;
+  --r2:       20px;
+  --r3:       24px;
+}
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box;}
+html{height:100%;}
+body{height:100%;background:var(--bg);color:var(--txt);font-family:var(--sans);font-size:14px;-webkit-font-smoothing:antialiased;overflow:hidden;font-weight:500;letter-spacing:0.01em;}
+button{font-family:inherit;cursor:pointer;border:none;outline:none;}
+a{text-decoration:none;color:inherit;}
+::-webkit-scrollbar{width:4px;}
+::-webkit-scrollbar-track{background:transparent;}
+::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px;}
+@keyframes blink{0%,100%{opacity:1}50%{opacity:0.3}}
+@keyframes fadein{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:translateY(0)}}
+@keyframes pulse-ring{0%{transform:scale(0.9);opacity:0.8}70%{transform:scale(1.3);opacity:0}100%{transform:scale(1.3);opacity:0}}
+@keyframes slidedown{from{opacity:0;transform:translateY(-10px)}to{opacity:1;transform:translateY(0)}}
+@keyframes spin{from{transform:rotate(0deg)}to{transform:rotate(360deg)}}
+
+/* ── CAM MODAL ── */
+.cam-overlay{display:none;position:fixed;inset:0;background:rgba(20,30,50,0.45);z-index:2000;align-items:center;justify-content:center;backdrop-filter:blur(6px);}
+.cam-overlay.on{display:flex;animation:fadein 0.2s ease;}
+.cam-card{background:var(--white);border-radius:var(--r3);padding:28px;width:440px;max-width:92vw;box-shadow:var(--shadow2);}
+.cam-card-title{font-size:18px;font-weight:800;color:var(--txt);margin-bottom:4px;}
+.cam-card-sub{font-size:12px;color:var(--txt3);margin-bottom:20px;font-weight:500;min-height:18px;}
+.cam-list{display:flex;flex-direction:column;gap:8px;margin-bottom:20px;min-height:60px;}
+.cam-item{display:flex;align-items:center;gap:12px;padding:13px 14px;background:var(--bg);border-radius:var(--r);border:2px solid transparent;cursor:pointer;transition:all 0.15s;}
+.cam-item:hover{background:var(--blue-bg);border-color:rgba(59,127,245,0.2);}
+.cam-item.sel{background:var(--blue-bg);border-color:var(--blue);}
+.cam-ico{font-size:22px;flex-shrink:0;}
+.cam-info{flex:1;min-width:0;}
+.cam-name{font-size:13px;font-weight:700;color:var(--txt);}
+.cam-sub-text{font-size:11px;color:var(--txt3);margin-top:2px;}
+.cam-chk{width:22px;height:22px;border-radius:50%;border:2px solid var(--border);background:transparent;display:flex;align-items:center;justify-content:center;font-size:12px;color:transparent;transition:all 0.15s;flex-shrink:0;}
+.cam-item.sel .cam-chk{background:var(--blue);border-color:var(--blue);color:#fff;}
+.cam-scan-msg{display:flex;align-items:center;justify-content:center;gap:10px;padding:20px 0;color:var(--txt3);font-size:12px;font-weight:500;}
+.cam-spinner{width:18px;height:18px;border:2px solid var(--bg2);border-top-color:var(--blue);border-radius:50%;animation:spin 0.7s linear infinite;flex-shrink:0;}
+.cam-error-box{padding:14px 16px;background:var(--red-bg);border:1px solid rgba(239,68,68,0.2);border-radius:var(--r);color:var(--red);font-size:12px;font-weight:600;text-align:center;}
+.cam-apply{width:100%;background:var(--blue);color:#fff;border-radius:var(--r);padding:13px;font-size:14px;font-weight:700;transition:all 0.15s;margin-bottom:10px;}
+.cam-apply:hover:not(:disabled){background:var(--blue2);}
+.cam-apply:disabled{opacity:0.4;cursor:not-allowed;}
+.cam-note{text-align:center;font-size:10px;color:var(--txt3);font-family:var(--mono);}
+
+/* ── SHELL ── */
+.shell{display:flex;height:100vh;overflow:hidden;}
+
+/* ── SIDEBAR ── */
+.sidebar{width:220px;min-width:220px;background:var(--white);border-right:1px solid var(--border);display:flex;flex-direction:column;transition:width 0.22s cubic-bezier(.4,0,.2,1),min-width 0.22s;overflow:hidden;flex-shrink:0;box-shadow:2px 0 12px rgba(0,0,0,0.04);position:relative;}
+.sidebar.slim{width:64px;min-width:64px;}
+.sb-top{padding:20px 16px 16px;border-bottom:1px solid var(--border);flex-shrink:0;}
+.sb-brand{display:flex;align-items:center;gap:10px;white-space:nowrap;overflow:hidden;}
+.sb-icon{width:36px;height:36px;flex-shrink:0;background:linear-gradient(135deg,var(--blue),var(--blue2));border-radius:10px;display:flex;align-items:center;justify-content:center;font-weight:900;font-size:13px;color:#fff;box-shadow:0 4px 12px rgba(59,127,245,0.35);}
+.sb-brand-text{overflow:hidden;}
+.sb-brand-text strong{display:block;font-size:18px;font-weight:900;color:var(--txt);font-family:var(--display);letter-spacing:0.08em;text-transform:uppercase;}
+.sb-brand-text span{font-size:9px;font-family:var(--mono);color:var(--txt3);letter-spacing:1.5px;text-transform:uppercase;}
+.nav{flex:1;padding:12px 10px;overflow:hidden;}
+.nav-grp{margin-bottom:20px;}
+.nav-grp-lbl{font-size:9px;font-weight:700;color:var(--txt3);letter-spacing:1.5px;text-transform:uppercase;padding:0 8px;margin-bottom:6px;white-space:nowrap;}
+.ni{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:var(--r);color:var(--txt2);font-size:13px;font-weight:700;cursor:pointer;transition:all 0.15s;white-space:nowrap;margin-bottom:2px;font-family:var(--display);letter-spacing:0.05em;text-transform:uppercase;}
+.ni:hover{background:var(--bg);color:var(--txt);}
+.ni.on{background:var(--blue-bg);color:var(--blue);}
+.ni-ico{font-size:16px;width:22px;text-align:center;flex-shrink:0;}
+.ni-label{overflow:hidden;}
+.ni-badge{margin-left:auto;background:var(--red);color:#fff;font-size:9px;font-weight:700;padding:2px 6px;border-radius:20px;flex-shrink:0;display:none;font-family:var(--mono);}
+.risk-ind{width:8px;height:8px;border-radius:50%;margin-left:auto;flex-shrink:0;background:var(--green);position:relative;}
+.risk-ind::after{content:'';position:absolute;inset:-3px;border-radius:50%;border:2px solid var(--green);animation:pulse-ring 2s infinite;}
+.risk-ind.w{background:var(--amber);}
+.risk-ind.w::after{border-color:var(--amber);}
+.risk-ind.s{background:var(--orange);}
+.risk-ind.s::after{border-color:var(--orange);}
+.risk-ind.c{background:var(--red);animation:blink 0.7s infinite;}
+.risk-ind.c::after{border-color:var(--red);}
+.sb-foot{padding:12px 14px 16px;border-top:1px solid var(--border);flex-shrink:0;}
+.sb-status{display:flex;align-items:center;gap:8px;margin-bottom:6px;white-space:nowrap;}
+.sb-status:last-child{margin-bottom:0;}
+.s-pip{width:6px;height:6px;border-radius:50%;flex-shrink:0;}
+.s-pip.on{background:var(--green);}
+.s-pip.rec{background:var(--red);animation:blink 1.2s infinite;}
+.sb-status span{font-size:11px;color:var(--txt3);font-weight:500;}
+.sb-toggle{position:absolute;bottom:80px;right:-12px;z-index:10;width:24px;height:24px;border-radius:50%;background:var(--white);border:1px solid var(--border);display:flex;align-items:center;justify-content:center;font-size:9px;color:var(--txt3);cursor:pointer;box-shadow:var(--shadow);transition:all 0.15s;}
+.sb-toggle:hover{color:var(--txt);}
+
+/* ── MAIN ── */
+.main{flex:1;display:flex;flex-direction:column;overflow:hidden;min-width:0;}
+
+/* ── TOPBAR ── */
+.topbar{height:64px;flex-shrink:0;display:flex;align-items:center;justify-content:space-between;padding:0 22px;background:var(--white);border-bottom:1px solid var(--border);box-shadow:0 2px 8px rgba(0,0,0,0.04);}
+.tb-left{display:flex;flex-direction:column;gap:1px;}
+.tb-left strong{font-size:20px;font-weight:900;color:var(--txt);font-family:var(--display);letter-spacing:0.06em;text-transform:uppercase;}
+.tb-left span{font-size:11px;color:var(--txt3);font-weight:500;}
+.tb-center{display:flex;align-items:center;}
+.level-pill{font-family:var(--display);font-size:13px;font-weight:800;padding:7px 22px;border-radius:20px;border:2px solid;transition:all 0.3s;letter-spacing:0.1em;text-transform:uppercase;}
+.lv-safe{color:var(--green);border-color:rgba(34,197,94,0.3);background:var(--green-bg);}
+.lv-watch{color:var(--amber);border-color:rgba(245,158,11,0.3);background:var(--amber-bg);}
+.lv-sus{color:var(--orange);border-color:rgba(249,115,22,0.3);background:var(--orange-bg);}
+.lv-crit{color:var(--red);border-color:rgba(239,68,68,0.4);background:var(--red-bg);animation:blink 0.9s infinite;}
+.tb-right{display:flex;align-items:center;gap:10px;}
+.tb-time{font-family:var(--mono);font-size:12px;color:var(--txt3);}
+.tb-btn{width:36px;height:36px;border-radius:var(--r);border:1.5px solid var(--border);background:var(--white);display:flex;align-items:center;justify-content:center;color:var(--txt2);font-size:15px;position:relative;transition:all 0.15s;cursor:pointer;box-shadow:var(--shadow);}
+.tb-btn:hover{border-color:var(--blue);color:var(--blue);}
+.notif-pip{position:absolute;top:4px;right:4px;width:6px;height:6px;border-radius:50%;background:var(--red);border:1.5px solid var(--white);display:none;}
+.notif-pip.on{display:block;}
+.yolo-tag{font-family:var(--mono);font-size:10px;font-weight:500;padding:5px 12px;border-radius:8px;background:var(--blue-bg);color:var(--blue);border:1.5px solid rgba(59,127,245,0.2);}
+.logout-btn{font-size:12px;font-weight:600;padding:6px 14px;border-radius:var(--r);border:1.5px solid var(--border);color:var(--txt2);background:var(--white);transition:all 0.15s;cursor:pointer;}
+.logout-btn:hover{border-color:var(--red);color:var(--red);}
+
+/* ── ALERT BANNER ── */
+.alert-banner{display:none;flex-shrink:0;padding:10px 22px;background:var(--red-bg);border-bottom:2px solid rgba(239,68,68,0.2);align-items:center;justify-content:space-between;}
+.alert-banner.on{display:flex;animation:slidedown 0.22s ease;}
+.ab-left{display:flex;align-items:center;gap:12px;}
+.ab-icon{width:32px;height:32px;border-radius:8px;background:var(--red);display:flex;align-items:center;justify-content:center;color:#fff;font-size:14px;flex-shrink:0;}
+.ab-text strong{display:block;font-size:15px;font-weight:900;color:var(--red);font-family:var(--display);letter-spacing:0.06em;text-transform:uppercase;}
+.ab-text span{font-size:11px;color:var(--txt2);}
+.ab-right{display:flex;gap:8px;}
+.ab-act{font-size:11px;font-weight:700;padding:6px 14px;border-radius:var(--r);border:1.5px solid;background:transparent;cursor:pointer;transition:all 0.15s;}
+.ab-dismiss{border-color:rgba(239,68,68,0.3);color:var(--red);}
+.ab-dismiss:hover{background:var(--red);color:#fff;}
+.ab-view{border-color:rgba(59,127,245,0.3);color:var(--blue);}
+.ab-view:hover{background:var(--blue);color:#fff;}
+
+/* ── PAGES ── */
+.pages{flex:1;overflow:hidden;position:relative;}
+.page{position:absolute;inset:0;overflow-y:auto;padding:20px;display:none;}
+.page.on{display:block;animation:fadein 0.2s ease;}
+
+/* ── CARD ── */
+.card{background:var(--card);border-radius:var(--r2);box-shadow:var(--shadow);border:1px solid var(--border);overflow:hidden;}
+.card-top{padding:14px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;}
+.card-title{font-size:11px;font-weight:800;color:var(--txt2);letter-spacing:1.5px;text-transform:uppercase;font-family:var(--display);}
+.card-body{padding:16px 18px;}
+
+/* ── DASHBOARD ── */
+.dash-grid{display:grid;grid-template-columns:1fr 300px;grid-template-rows:1fr auto;gap:16px;height:calc(100vh - 64px - 40px);}
+.dash-feed-col{grid-column:1;grid-row:1/3;display:flex;flex-direction:column;}
+.dash-side-col{display:flex;flex-direction:column;gap:14px;overflow-y:auto;padding-right:2px;}
+.dash-bottom-row{grid-column:1/-1;}
+
+/* ── FEED ── */
+.feed-card{display:flex;flex-direction:column;height:100%;}
+.zone-bar{display:flex;align-items:center;gap:7px;padding:10px 14px;background:var(--bg);border-bottom:1px solid var(--border);flex-shrink:0;flex-wrap:wrap;}
+.zb{font-family:var(--display);font-size:11px;font-weight:700;padding:6px 13px;border-radius:10px;border:1.5px solid var(--border);background:var(--white);color:var(--txt2);transition:all 0.15s;cursor:pointer;white-space:nowrap;box-shadow:var(--shadow);letter-spacing:0.05em;text-transform:uppercase;}
+.zb:hover{border-color:var(--blue);color:var(--blue);background:var(--blue-bg);}
+.zb.drawing{border-color:var(--amber);color:var(--amber);background:var(--amber-bg);}
+.zb.active{border-color:var(--green);color:var(--green);background:var(--green-bg);}
+.zb.danger{border-color:rgba(239,68,68,0.3);color:var(--red);}
+.zb.danger:hover{background:var(--red);color:#fff;border-color:var(--red);}
+.zb.cam-btn{border-color:rgba(59,127,245,0.3);color:var(--blue);background:var(--blue-bg);}
+.zt-row{display:none;align-items:center;gap:5px;}
+.zt-row.on{display:flex;}
+.zt{padding:5px 11px;border-radius:8px;border:1.5px solid var(--border);background:var(--white);font-family:var(--mono);font-size:10px;color:var(--txt2);cursor:pointer;transition:all 0.15s;}
+.zt.high{border-color:rgba(239,68,68,0.4);color:var(--red);background:var(--red-bg);}
+.zt.obs{border-color:rgba(249,115,22,0.4);color:var(--orange);background:var(--orange-bg);}
+.zb-stat{margin-left:auto;font-family:var(--mono);font-size:10px;color:var(--txt3);white-space:nowrap;}
+.feed-area{flex:1;position:relative;background:#0f1520;overflow:hidden;min-height:200px;border-radius:0 0 var(--r2) var(--r2);}
+.feed-area.cross{cursor:crosshair;}
+#liveFeed{width:100%;height:100%;object-fit:contain;display:block;transform:scaleX(-1);}
+#zoneCanvas{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;}
+#zoneCanvas.draw{pointer-events:all;}
+.hud-tl{position:absolute;top:12px;left:12px;display:flex;gap:7px;}
+.hud-tr{position:absolute;top:12px;right:12px;}
+.hud-bl{position:absolute;bottom:12px;left:12px;}
+.hud-br{position:absolute;bottom:12px;right:12px;}
+.hud-chip{background:rgba(255,255,255,0.12);backdrop-filter:blur(8px);border:1px solid rgba(255,255,255,0.15);padding:4px 10px;border-radius:8px;font-family:var(--mono);font-size:10px;color:rgba(255,255,255,0.85);display:flex;align-items:center;gap:5px;}
+.rec-dot{width:6px;height:6px;border-radius:50%;background:#ef4444;animation:blink 1.2s infinite;}
+.feed-offline{position:absolute;inset:0;background:rgba(15,21,32,0.9);display:none;flex-direction:column;align-items:center;justify-content:center;gap:10px;}
+.feed-offline.on{display:flex;}
+.feed-offline p{font-family:var(--mono);font-size:11px;color:rgba(255,255,255,0.5);}
+
+/* ── RISK SCORE ── */
+.risk-card-body{padding:18px;}
+.risk-top{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:14px;}
+.risk-score-big{font-size:72px;font-weight:900;color:var(--green);line-height:1;letter-spacing:-2px;transition:color 0.4s;font-family:var(--display);}
+.risk-denom{font-family:var(--mono);font-size:14px;color:var(--txt3);margin-top:8px;}
+.risk-badge{display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:700;padding:5px 12px;border-radius:20px;}
+.risk-badge.safe{background:var(--green-bg);color:var(--green);}
+.risk-badge.watch{background:var(--amber-bg);color:var(--amber);}
+.risk-badge.sus{background:var(--orange-bg);color:var(--orange);}
+.risk-badge.crit{background:var(--red-bg);color:var(--red);animation:blink 0.9s infinite;}
+.risk-bar-bg{height:10px;background:var(--bg2);border-radius:6px;overflow:hidden;margin-bottom:16px;}
+.risk-bar-fill{height:100%;width:0%;border-radius:6px;background:var(--green);transition:width 0.5s ease,background 0.3s;}
+.beh-chips{display:flex;flex-wrap:wrap;gap:5px;}
+.chip{font-family:var(--display);font-size:10px;font-weight:700;padding:4px 10px;border-radius:6px;background:var(--bg);color:var(--txt3);border:1px solid var(--border);transition:all 0.25s;letter-spacing:0.05em;text-transform:uppercase;}
+.chip.active{background:var(--orange-bg);color:var(--orange);border-color:rgba(249,115,22,0.3);}
+.demo-row{display:flex;gap:8px;padding:14px 18px;border-top:1px solid var(--border);}
+.demo-btn{flex:1;font-size:11px;font-weight:700;padding:8px;border-radius:var(--r);border:1.5px solid;background:transparent;cursor:pointer;transition:all 0.15s;}
+.demo-btn.red{border-color:rgba(239,68,68,0.3);color:var(--red);}
+.demo-btn.red:hover{background:var(--red);color:#fff;border-color:var(--red);}
+.demo-btn.org{border-color:rgba(249,115,22,0.3);color:var(--orange);}
+.demo-btn.org:hover{background:var(--orange);color:#fff;border-color:var(--orange);}
+
+/* ── TIMELINE ── */
+.tl-item{padding:10px 12px;border-radius:var(--r);margin-bottom:7px;background:var(--bg);border:1.5px solid var(--border);cursor:pointer;transition:all 0.15s;border-left:3px solid var(--red);}
+.tl-item:hover{border-color:rgba(59,127,245,0.3);background:var(--blue-bg);}
+.tl-item.obs{border-left-color:var(--orange);}
+.tl-top{display:flex;justify-content:space-between;align-items:center;margin-bottom:3px;}
+.tl-type{font-family:var(--mono);font-size:9px;font-weight:700;letter-spacing:0.5px;}
+.tl-type.h{color:var(--red);}
+.tl-type.o{color:var(--orange);}
+.tl-time{font-family:var(--mono);font-size:9px;color:var(--txt3);}
+.tl-desc{font-size:11px;color:var(--txt2);margin-bottom:2px;font-weight:500;}
+.tl-score{font-family:var(--mono);font-size:9px;color:var(--txt3);}
+.tl-score em{color:var(--red);font-style:normal;font-weight:700;}
+.empty-msg{font-family:var(--mono);font-size:11px;color:var(--txt3);text-align:center;padding:24px 0;}
+
+/* ── STATS ── */
+.stats-row{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;}
+.stat-card{background:var(--white);border-radius:var(--r2);padding:16px 18px;box-shadow:var(--shadow);border:1px solid var(--border);display:flex;align-items:center;gap:14px;}
+.stat-icon{width:42px;height:42px;border-radius:12px;display:flex;align-items:center;justify-content:center;font-size:20px;flex-shrink:0;}
+.stat-icon.blue{background:var(--blue-bg);}
+.stat-icon.green{background:var(--green-bg);}
+.stat-icon.amber{background:var(--amber-bg);}
+.stat-icon.red{background:var(--red-bg);}
+.stat-val{font-size:32px;font-weight:900;color:var(--txt);line-height:1;font-family:var(--display);}
+.stat-lbl{font-size:10px;color:var(--txt3);font-weight:700;margin-top:3px;text-transform:uppercase;letter-spacing:0.5px;font-family:var(--display);}
+
+/* ── PAGE HEADER ── */
+.pg-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;}
+.pg-title{font-size:28px;font-weight:900;color:var(--txt);font-family:var(--display);letter-spacing:0.04em;text-transform:uppercase;}
+.filter-row{display:flex;gap:7px;}
+.fbt{font-size:11px;font-weight:800;padding:6px 16px;border-radius:20px;border:1.5px solid var(--border);background:var(--white);color:var(--txt2);cursor:pointer;transition:all 0.15s;box-shadow:var(--shadow);font-family:var(--display);letter-spacing:0.06em;text-transform:uppercase;}
+.fbt:hover{border-color:var(--blue);color:var(--blue);}
+.fbt.sel{background:var(--blue);border-color:var(--blue);color:#fff;}
+
+/* ── ALERT CARDS ── */
+.alert-card{background:var(--white);border-radius:var(--r2);padding:16px 18px;margin-bottom:10px;cursor:pointer;transition:all 0.15s;border:1.5px solid var(--border);box-shadow:var(--shadow);border-left:4px solid var(--red);}
+.alert-card:hover{box-shadow:var(--shadow2);border-color:rgba(59,127,245,0.25);}
+.alert-card.obs{border-left-color:var(--orange);}
+.alert-card.tamper{border-left-color:var(--orange);background:var(--orange-bg);}
+.alert-card,.alert-card *{animation:none!important;}
+.ac-top{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:12px;gap:12px;}
+.ac-meta{flex:1;}
+.ac-type{font-family:var(--display);font-size:11px;font-weight:800;color:var(--red);margin-bottom:4px;letter-spacing:0.08em;text-transform:uppercase;}
+.ac-type.o{color:var(--orange);}
+.ac-desc{font-size:14px;font-weight:700;color:var(--txt);}
+.ac-time{font-family:var(--mono);font-size:10px;color:var(--txt3);white-space:nowrap;}
+.ac-score{font-size:32px;font-weight:900;color:var(--red);line-height:1;}
+.ac-bot{display:flex;align-items:center;justify-content:space-between;padding-top:12px;border-top:1px solid var(--border);}
+.ac-tags{display:flex;flex-wrap:wrap;gap:5px;}
+.ac-tag{font-family:var(--mono);font-size:9px;padding:3px 8px;border-radius:6px;background:var(--bg);color:var(--txt2);border:1px solid var(--border);font-weight:500;}
+.view-ev{font-size:11px;font-weight:700;padding:6px 14px;border-radius:var(--r);border:1.5px solid rgba(59,127,245,0.3);background:transparent;color:var(--blue);cursor:pointer;transition:all 0.15s;}
+.view-ev:hover{background:var(--blue);color:#fff;border-color:var(--blue);}
+
+/* ── EVIDENCE ── */
+.ev-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:14px;}
+.ev-card{background:var(--white);border-radius:var(--r2);overflow:hidden;cursor:pointer;transition:all 0.15s;box-shadow:var(--shadow);border:1.5px solid var(--border);}
+.ev-card:hover{transform:translateY(-3px);box-shadow:var(--shadow2);}
+.ev-thumb{aspect-ratio:16/9;background:var(--bg2);position:relative;overflow:hidden;}
+.ev-thumb img{width:100%;height:100%;object-fit:cover;display:block;}
+.ev-play{position:absolute;inset:0;background:rgba(0,0,0,0.4);display:flex;align-items:center;justify-content:center;font-size:24px;opacity:0;transition:opacity 0.15s;}
+.ev-card:hover .ev-play{opacity:1;}
+.ev-badge{position:absolute;top:8px;left:8px;font-size:9px;font-weight:700;padding:3px 8px;border-radius:6px;font-family:var(--mono);}
+.ev-badge.alert{background:rgba(239,68,68,0.85);color:#fff;}
+.ev-badge.tamper{background:rgba(249,115,22,0.85);color:#fff;}
+.ev-info{padding:12px 14px;}
+.ev-name{font-size:13px;font-weight:700;color:var(--txt);margin-bottom:3px;}
+.ev-ts{font-family:var(--mono);font-size:10px;color:var(--txt3);}
+.ev-sect{grid-column:1/-1;font-size:11px;font-weight:700;color:var(--txt3);letter-spacing:0.5px;padding:4px 0;border-bottom:1.5px solid var(--border);margin-bottom:4px;margin-top:8px;}
+.ev-empty{font-family:var(--mono);font-size:11px;color:var(--txt3);text-align:center;padding:48px;grid-column:1/-1;}
+
+/* ── MONITOR ── */
+.mon-grid{display:grid;grid-template-columns:1fr 270px;gap:16px;height:calc(100vh - 64px - 40px);}
+.mon-feed{display:flex;flex-direction:column;}
+.mon-side{display:flex;flex-direction:column;gap:14px;overflow-y:auto;}
+.why-row{display:flex;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--border);font-size:12px;color:var(--txt2);font-weight:500;}
+.why-row:last-child{border-bottom:none;}
+.why-row.on{color:var(--txt);}
+.why-pip{width:7px;height:7px;border-radius:50%;background:var(--bg2);flex-shrink:0;border:1.5px solid var(--border);}
+.why-pip.on{background:var(--orange);border-color:var(--orange);}
+
+/* ── ANALYTICS ── */
+.an-stats{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin-bottom:16px;}
+.an-box{background:var(--white);border-radius:var(--r2);padding:18px;box-shadow:var(--shadow);border:1px solid var(--border);}
+.an-val{font-size:32px;font-weight:900;color:var(--txt);line-height:1;}
+.an-lbl{font-size:10px;font-weight:700;color:var(--txt3);letter-spacing:0.5px;margin-top:6px;text-transform:uppercase;}
+.an-sub{font-size:11px;color:var(--green);font-weight:600;margin-top:4px;}
+.charts-row{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+.chart-box{background:var(--white);border-radius:var(--r2);padding:18px;box-shadow:var(--shadow);border:1px solid var(--border);}
+.chart-tag{font-size:10px;font-weight:700;color:var(--txt3);letter-spacing:1px;text-transform:uppercase;margin-bottom:4px;}
+.chart-h{font-size:15px;font-weight:800;color:var(--txt);margin-bottom:16px;}
+.chart-area{height:180px;position:relative;}
+
+/* ── SETTINGS ── */
+.set-grid{display:grid;grid-template-columns:1fr 1fr;gap:14px;}
+.set-box{background:var(--white);border-radius:var(--r2);padding:18px;box-shadow:var(--shadow);border:1px solid var(--border);margin-bottom:12px;}
+.set-lbl{font-size:10px;font-weight:700;color:var(--txt3);letter-spacing:1px;text-transform:uppercase;margin-bottom:16px;}
+.set-row{display:flex;align-items:center;justify-content:space-between;padding:9px 0;border-bottom:1px solid var(--border);}
+.set-row:last-child{border-bottom:none;}
+.set-name{font-size:13px;color:var(--txt2);font-weight:500;}
+.set-val{font-family:var(--mono);font-size:11px;color:var(--txt);font-weight:500;}
+.toggle{width:38px;height:22px;background:var(--bg2);border-radius:11px;position:relative;cursor:pointer;transition:background 0.2s;border:1.5px solid var(--border);}
+.toggle.on{background:var(--blue);border-color:var(--blue);}
+.toggle::after{content:'';position:absolute;top:2px;left:2px;width:14px;height:14px;border-radius:50%;background:#fff;transition:left 0.2s;box-shadow:0 1px 4px rgba(0,0,0,0.2);}
+.toggle.on::after{left:18px;}
+
+/* ── MODAL ── */
+.modal-bg{display:none;position:fixed;inset:0;background:rgba(20,30,50,0.5);z-index:999;align-items:center;justify-content:center;backdrop-filter:blur(6px);}
+.modal-bg.on{display:flex;animation:fadein 0.2s ease;}
+.modal-box{background:var(--white);border-radius:var(--r3);padding:22px;max-width:700px;width:92%;box-shadow:var(--shadow2);}
+.modal-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:16px;}
+.modal-title{font-size:16px;font-weight:800;color:var(--txt);}
+.modal-close{font-size:12px;font-weight:700;padding:6px 14px;border-radius:var(--r);border:1.5px solid var(--border);background:transparent;color:var(--txt2);cursor:pointer;transition:all 0.15s;}
+.modal-close:hover{border-color:var(--red);color:var(--red);}
+#mImg{width:100%;border-radius:var(--r2);display:block;min-height:80px;}
+#mVid{width:100%;border-radius:var(--r2);background:#000;display:none;}
+#mErr{display:none;padding:32px;text-align:center;background:var(--bg);border-radius:var(--r2);font-family:var(--mono);font-size:11px;color:var(--txt3);}
+.modal-meta{margin-top:10px;font-family:var(--mono);font-size:10px;color:var(--txt3);}
+
+/* ── MOBILE ── */
+@media(max-width:768px){
+  html,body{overflow:auto;}
+  .shell{flex-direction:column;}
+  .sidebar{width:100%!important;min-width:100%!important;height:auto;flex-direction:row;border-right:none;border-bottom:1px solid var(--border);box-shadow:none;}
+  .sb-top{border-bottom:none;padding:14px;}
+  .nav{display:flex;flex-direction:row;overflow-x:auto;padding:8px;}
+  .ni{flex-direction:column;gap:2px;padding:8px 10px;font-size:10px;min-width:60px;text-align:center;}
+  .ni-ico{width:auto;}
+  .nav-grp{margin-bottom:0;display:flex;gap:2px;}
+  .nav-grp-lbl,.sb-foot,.sb-toggle{display:none;}
+  .main{height:auto;}
+  .pages{overflow:visible;position:static;}
+  .page{position:static;overflow:visible;animation:none;}
+  .dash-grid,.mon-grid{grid-template-columns:1fr;height:auto;}
+  .dash-feed-col{grid-row:auto;}
+  .feed-area{height:240px;border-radius:0 0 var(--r2) var(--r2);}
+  .charts-row,.set-grid,.an-stats,.stats-row{grid-template-columns:1fr 1fr;}
+  .tb-center{display:none;}
+  .topbar{height:56px;padding:0 14px;}
+  .tb-left strong{font-size:14px;}
+}
+@media(max-width:480px){
+  .stats-row,.an-stats{grid-template-columns:1fr 1fr;}
+  .charts-row,.set-grid{grid-template-columns:1fr;}
+}
+</style>
+</head>
+<body>
+
+<!-- ── CAMERA MODAL ── -->
+<div class="cam-overlay" id="camOverlay">
+  <div class="cam-card">
+    <div class="cam-card-title">📷 Select Camera</div>
+    <div class="cam-card-sub" id="camSub">Scanning connected cameras…</div>
+    <div class="cam-list" id="camList">
+      <div class="cam-scan-msg"><div class="cam-spinner"></div>Scanning…</div>
+    </div>
+    <button class="cam-apply" id="camApply" onclick="confirmCam()" disabled>Apply Camera</button>
+    <div class="cam-note" id="camNote">Python backend scans OpenCV camera indices</div>
+  </div>
+</div>
+
+<div class="shell">
+
+<!-- SIDEBAR -->
+<div class="sidebar" id="sidebar">
+  <div class="sb-top">
+    <div class="sb-brand">
+      <div class="sb-brand-text"><strong>CUSTOS</strong><span>Anomaly Detection</span></div>
+    </div>
+  </div>
+  <div class="nav">
+    <div class="nav-grp">
+      <div class="nav-grp-lbl">Monitor</div>
+      <div class="ni on" id="ni-dashboard" onclick="gotoPage('dashboard')"><span class="ni-ico">⊞</span><span class="ni-label">Dashboard</span></div>
+      <div class="ni" id="ni-monitor" onclick="gotoPage('monitor')"><span class="ni-ico">◉</span><span class="ni-label">Live Monitor</span><span class="risk-ind" id="riskDot"></span></div>
+    </div>
+    <div class="nav-grp">
+      <div class="nav-grp-lbl">Intelligence</div>
+      <div class="ni" id="ni-alerts" onclick="gotoPage('alerts')"><span class="ni-ico">⚑</span><span class="ni-label">Alerts</span><span class="ni-badge" id="alertBadge">0</span></div>
+      <div class="ni" id="ni-evidence" onclick="gotoPage('evidence')"><span class="ni-ico">⊡</span><span class="ni-label">Evidence</span></div>
+      <div class="ni" id="ni-analytics" onclick="gotoPage('analytics')"><span class="ni-ico">◈</span><span class="ni-label">Analytics</span></div>
+    </div>
+    <div class="nav-grp">
+      <div class="nav-grp-lbl">System</div>
+      <div class="ni" id="ni-settings" onclick="gotoPage('settings')"><span class="ni-ico">◎</span><span class="ni-label">Settings</span></div>
+    </div>
+  </div>
+  <div class="sb-foot">
+    <div class="sb-status"><div class="s-pip on"></div><span>AI · YOLOv8n Active</span></div>
+    <div class="sb-status"><div class="s-pip on"></div><span>Camera Online</span></div>
+    <div class="sb-status"><div class="s-pip rec"></div><span>Recording</span></div>
+  </div>
+  <div class="sb-toggle" id="sbToggle" onclick="toggleSb()">◀</div>
+</div>
+
+<!-- MAIN -->
+<div class="main">
+  <div class="topbar">
+    <div class="tb-left"><strong>CUSTOS Perimeter</strong><span>Asset Interaction · Anomaly Detection</span></div>
+    <div class="tb-center"><div class="level-pill lv-safe" id="levelPill">● SAFE</div></div>
+    <div class="tb-right">
+      <span class="tb-time" id="topClock">--:--:--</span>
+      <button class="tb-btn" onclick="gotoPage('alerts')">🔔<div class="notif-pip" id="notifPip"></div></button>
+      <div class="yolo-tag">YOLOv8 · ON</div>
+      <a href="/logout" class="logout-btn">Logout</a>
+    </div>
+  </div>
+
+  <div class="alert-banner" id="alertBanner">
+    <div class="ab-left">
+      <div class="ab-icon" id="abIcon">⚠</div>
+      <div class="ab-text"><strong id="abTitle">HIGH ZONE BREACH</strong><span id="abSub">Risk Score: 95</span></div>
+    </div>
+    <div class="ab-right">
+      <button class="ab-act ab-view" onclick="gotoPage('evidence')">View Evidence</button>
+      <button class="ab-act ab-dismiss" onclick="dismissBanner()">Dismiss</button>
+    </div>
+  </div>
+
+  <div class="pages">
+
+    <!-- DASHBOARD -->
+    <div class="page on" id="page-dashboard">
+      <div class="dash-grid">
+        <div class="card feed-card dash-feed-col">
+          <div class="zone-bar">
+            <button class="zb cam-btn" onclick="openCamModal()">📷 Camera</button>
+            <button class="zb" id="btnDraw" onclick="toggleDraw()">Draw Zone</button>
+            <div class="zt-row" id="ztRow">
+              <span style="font-size:10px;color:var(--txt3);font-weight:600">Type:</span>
+              <button class="zt high" id="ztHigh" onclick="setZT('HIGH')">HIGH</button>
+              <button class="zt" id="ztObs" onclick="setZT('OBSERVATION')">OBS</button>
+            </div>
+            <button class="zb danger" onclick="clearZones()">✕ Clear</button>
+            <button class="zb" id="btnStart" onclick="startMonitoring()">▶ Start</button>
+            <span class="zb-stat" id="zbStat">Draw zones then start</span>
+          </div>
+          <div class="feed-area" id="feedArea">
+            <img id="liveFeed" src="/video_feed" onerror="feedErr()" onload="feedOk()">
+            <canvas id="zoneCanvas"></canvas>
+            <div class="hud-tl">
+              <div class="hud-chip"><span class="rec-dot"></span>REC</div>
+              <div class="hud-chip" id="hudCam">CAM-01</div>
+            </div>
+            <div class="hud-tr"><div class="hud-chip" id="hudClock">--:--:--</div></div>
+            <div class="hud-bl"><div class="hud-chip" id="hudFps">-- FPS</div></div>
+            <div class="hud-br"><div class="hud-chip" id="hudPersons">0 persons</div></div>
+            <div class="feed-offline" id="feedOffline"><div class="rec-dot" style="width:14px;height:14px;"></div><p>Camera reconnecting…</p></div>
+          </div>
+        </div>
+
+        <div class="dash-side-col">
+          <div class="card">
+            <div class="card-top"><span class="card-title">RISK SCORE</span><span style="font-family:var(--display);font-size:11px;font-weight:700;color:var(--txt3);letter-spacing:0.08em;text-transform:uppercase;" id="modeTag">DAY MODE</span></div>
+            <div class="risk-card-body">
+              <div class="risk-top">
+                <div><div class="risk-score-big" id="riskNum">0</div><div class="risk-denom">/100</div></div>
+                <div class="risk-badge safe" id="riskBadge">● SAFE</div>
+              </div>
+              <div class="risk-bar-bg"><div class="risk-bar-fill" id="riskFill"></div></div>
+              <div class="beh-chips" id="behChips">
+                <span class="chip">PACING</span><span class="chip">CROUCHING</span>
+                <span class="chip">LINGERING</span><span class="chip">FREEZE</span>
+                <span class="chip">RUNNING</span><span class="chip">CIRCLING</span>
+              </div>
+            </div>
+            <div class="demo-row">
+              <button class="demo-btn red" onclick="demoAlert()">⚡ High Alert</button>
+              <button class="demo-btn org" onclick="demoTamper()">📵 Tamper</button>
+            </div>
+          </div>
+          <div class="card" style="flex:1;display:flex;flex-direction:column;min-height:0;">
+            <div class="card-top"><span class="card-title">RECENT ALERTS</span><span style="font-family:var(--display);font-size:11px;font-weight:700;color:var(--txt3);letter-spacing:0.05em;" id="tlCount">0 alerts</span></div>
+            <div style="flex:1;overflow-y:auto;padding:10px 14px;" id="dashTl"><div class="empty-msg">No alerts yet</div></div>
+          </div>
+        </div>
+
+        <div class="dash-bottom-row">
+          <div class="stats-row">
+            <div class="stat-card"><div class="stat-icon blue">👤</div><div><div class="stat-val" id="stPersons">0</div><div class="stat-lbl">Persons Detected</div></div></div>
+            <div class="stat-card"><div class="stat-icon red">⚑</div><div><div class="stat-val" id="stAlerts">0</div><div class="stat-lbl">Alerts Today</div></div></div>
+            <div class="stat-card"><div class="stat-icon green">⏱</div><div><div class="stat-val" id="stUptime">0m</div><div class="stat-lbl">System Uptime</div></div></div>
+            <div class="stat-card"><div class="stat-icon amber">◫</div><div><div class="stat-val" id="stZones">0</div><div class="stat-lbl">Active Zones</div></div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- LIVE MONITOR -->
+    <div class="page" id="page-monitor">
+      <div class="mon-grid">
+        <div class="card mon-feed">
+          <div class="card-top"><span class="card-title">LIVE FEED</span><span style="font-family:var(--display);font-size:11px;font-weight:700;color:var(--txt3);letter-spacing:0.05em;" id="monFps">-- FPS</span></div>
+          <div class="feed-area" style="flex:1;border-radius:0 0 var(--r2) var(--r2);"><img src="/video_feed" style="width:100%;height:100%;object-fit:contain;display:block;transform:scaleX(-1);"></div>
+        </div>
+        <div class="mon-side">
+          <div class="card">
+            <div class="card-top"><span class="card-title">RISK SCORE</span></div>
+            <div class="risk-card-body" style="padding:14px;">
+              <div class="risk-top"><div><div class="risk-score-big" id="monRiskNum">0</div><div class="risk-denom">/100</div></div><div class="risk-badge safe" id="monBadge">● SAFE</div></div>
+              <div class="risk-bar-bg"><div class="risk-bar-fill" id="monRiskFill"></div></div>
+            </div>
+          </div>
+          <div class="card">
+            <div class="card-top"><span class="card-title">ALERT REASONS</span></div>
+            <div class="card-body" id="whyPanel"><div class="empty-msg">No active alerts</div></div>
+          </div>
+          <div class="card">
+            <div class="card-top"><span class="card-title">BEHAVIOURS</span></div>
+            <div class="card-body"><div class="beh-chips" id="monBeh">
+              <span class="chip">PACING</span><span class="chip">CROUCHING</span>
+              <span class="chip">LINGERING</span><span class="chip">FREEZE</span>
+              <span class="chip">RUNNING</span><span class="chip">CIRCLING</span>
+            </div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ALERTS -->
+    <div class="page" id="page-alerts">
+      <div class="pg-head">
+        <div class="pg-title">Alert Timeline</div>
+        <div class="filter-row">
+          <button class="fbt sel" onclick="filterAlerts('all',this)">All</button>
+          <button class="fbt" onclick="filterAlerts('HIGH',this)">HIGH</button>
+          <button class="fbt" onclick="filterAlerts('OBSERVATION',this)">OBS</button>
+          <button class="fbt" onclick="filterAlerts('TAMPER',this)">TAMPER</button>
+          <button class="fbt" onclick="filterAlerts('RESOLVED',this)">Resolved</button>
+        </div>
+      </div>
+      <div id="alertsList"><div class="empty-msg" style="padding:60px 0;">No alerts yet — start monitoring to begin</div></div>
+    </div>
+
+    <!-- EVIDENCE -->
+    <div class="page" id="page-evidence">
+      <div class="pg-head">
+        <div class="pg-title">Evidence Gallery</div>
+        <button class="fbt" onclick="loadEvidence()">↻ Refresh</button>
+      </div>
+      <div class="ev-grid" id="evGrid"><div class="ev-empty">Loading evidence…</div></div>
+    </div>
+
+    <!-- ANALYTICS -->
+    <div class="page" id="page-analytics">
+      <div class="pg-head"><div class="pg-title">Analytics</div></div>
+      <div class="an-stats">
+        <div class="an-box"><div class="an-val" id="anTotal">0</div><div class="an-lbl">Total Alerts</div><div class="an-sub">↑ Live tracking</div></div>
+        <div class="an-box"><div class="an-val" id="anHigh" style="color:var(--red)">0</div><div class="an-lbl">High Risk Events</div></div>
+        <div class="an-box"><div class="an-val" id="anPeak" style="color:var(--orange)">—</div><div class="an-lbl">Peak Risk Score</div></div>
+        <div class="an-box"><div class="an-val" id="anAvg" style="color:var(--amber)">0</div><div class="an-lbl">Avg Risk Score</div></div>
+      </div>
+      <div class="charts-row">
+        <div class="chart-box"><div class="chart-tag">Risk Intelligence</div><div class="chart-h">Score Over Time</div><div class="chart-area"><canvas id="riskChart"></canvas></div></div>
+        <div class="chart-box"><div class="chart-tag">Operational</div><div class="chart-h">Alerts Per Hour</div><div class="chart-area"><canvas id="alertChart"></canvas></div></div>
+      </div>
+    </div>
+
+    <!-- SETTINGS -->
+    <div class="page" id="page-settings">
+      <div class="pg-head"><div class="pg-title">Settings</div></div>
+      <div class="set-grid">
+        <div>
+          <div class="set-box">
+            <div class="set-lbl">Camera</div>
+            <div class="set-row"><span class="set-name">Active Camera</span><span class="set-val" id="setCam">Built-in Camera (Index 0)</span></div>
+            <div class="set-row"><span class="set-name">Resolution</span><span class="set-val">640 × 480</span></div>
+            <div class="set-row"><span class="set-name">Stream FPS</span><span class="set-val">30 FPS</span></div>
+            <div class="set-row"><span class="set-name">Recording</span><div class="toggle on" onclick="this.classList.toggle('on')"></div></div>
+          </div>
+          <div class="set-box">
+            <div class="set-lbl">AI Detection</div>
+            <div class="set-row"><span class="set-name">Model</span><span class="set-val">YOLOv8n</span></div>
+            <div class="set-row"><span class="set-name">Confidence</span><span class="set-val">0.5</span></div>
+            <div class="set-row"><span class="set-name">Alert Cooldown</span><span class="set-val">30s</span></div>
+            <div class="set-row"><span class="set-name">Hysteresis</span><span class="set-val">2s</span></div>
+          </div>
+        </div>
+        <div>
+          <div class="set-box">
+            <div class="set-lbl">Notifications</div>
+            <div class="set-row"><span class="set-name">Telegram Alerts</span><div class="toggle on" onclick="this.classList.toggle('on')"></div></div>
+            <div class="set-row"><span class="set-name">Desktop Popup</span><div class="toggle on" onclick="this.classList.toggle('on')"></div></div>
+            <div class="set-row"><span class="set-name">Sound Alarm</span><div class="toggle on" onclick="this.classList.toggle('on')"></div></div>
+            <div class="set-row"><span class="set-name">Telegram Timeout</span><span class="set-val">8s</span></div>
+          </div>
+          <div class="set-box">
+            <div class="set-lbl">Zones</div>
+            <div class="set-row"><span class="set-name">Active Zones</span><span class="set-val" id="setZones">0</span></div>
+            <div class="set-row"><span class="set-name">Tamper Detection</span><div class="toggle on" onclick="this.classList.toggle('on')"></div></div>
+            <div class="set-row"><span class="set-name">Pre-tamper Buffer</span><span class="set-val">10s</span></div>
+            <div class="set-row"><span class="set-name">Zone Opacity</span><span class="set-val">20%</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+</div>
+
+<!-- Evidence Modal -->
+<div class="modal-bg" id="modalBg">
+  <div class="modal-box">
+    <div class="modal-header"><span class="modal-title" id="modalTitle">Evidence</span><button class="modal-close" onclick="closeModal()">Close</button></div>
+    <img id="mImg" src="" onerror="showMErr()">
+    <video id="mVid" controls></video>
+    <div id="mErr">No file found</div>
+    <div class="modal-meta" id="mMeta"></div>
+  </div>
+</div>
+
+<script>
+const socket = io({
+  reconnection: true,
+  reconnectionAttempts: Infinity,
+  reconnectionDelay: 1000,
+  reconnectionDelayMax: 5000,
+  timeout: 10000,
+});
+let alertsData=[], dismissed=false, monitoring=false;
+let drawMode=false, zoneType='HIGH', zones=[], drawing=false, sx,sy,cx,cy;
+let t0=Date.now(), peakRisk=0, rHist=[], aPerHr=new Array(24).fill(0);
+let rChart=null, aChart=null, curPage='dashboard', afilt='all';
+let selCamIdx=0, availCams=[];
+// Real camera frame dimensions — received from server on first socket update
+let camW=640, camH=480, camDimsReady=false;
+
+// ═══════════════════════════════════════════════════════
+// CAMERA MODAL
+// How it works:
+//   1. User clicks "📷 Camera" button
+//   2. Browser calls /list_cameras on Python server
+//   3. Python probes cv2.VideoCapture(0..4) — only real cameras appear
+//   4. Results shown as cards — laptop cam + any USB cams connected
+//   5. User selects one and clicks Apply
+//   6. socket.emit('set_camera') tells Python to switch cv2 source
+//   7. Feed reloads with new camera
+// ═══════════════════════════════════════════════════════
+async function openCamModal() {
+  // Show modal immediately with spinner
+  document.getElementById('camOverlay').classList.add('on');
+  document.getElementById('camApply').disabled = true;
+  document.getElementById('camSub').textContent = 'Scanning connected cameras…';
+  document.getElementById('camNote').textContent = 'Python is probing OpenCV camera indices 0–4';
+  document.getElementById('camList').innerHTML =
+    '<div class="cam-scan-msg"><div class="cam-spinner"></div>Scanning, please wait…</div>';
+
+  availCams = [];
+
+  try {
+    // Ask Python backend to scan cameras using OpenCV
+    const response = await fetch('/list_cameras');
+    const data = await response.json();
+
+    if (!data.cameras || data.cameras.length === 0) {
+      // No cameras found at all
+      document.getElementById('camList').innerHTML =
+        '<div class="cam-error-box">⚠ No cameras detected. Check your connections and try again.</div>';
+      document.getElementById('camSub').textContent = 'No cameras found';
+      document.getElementById('camNote').textContent = 'Connect a camera and click the Camera button again';
+      return;
+    }
+
+    availCams = data.cameras;
+    const count = availCams.length;
+    document.getElementById('camSub').textContent =
+      count === 1 ? '1 camera detected' : `${count} cameras detected`;
+    document.getElementById('camNote').textContent =
+      'Select a camera below and click Apply to switch';
+
+    renderCamList();
+
+  } catch (err) {
+    document.getElementById('camList').innerHTML =
+      '<div class="cam-error-box">⚠ Could not reach server. Is Python running?</div>';
+    document.getElementById('camSub').textContent = 'Server connection failed';
+    document.getElementById('camNote').textContent = 'Make sure python web_server.py is running';
+  }
+}
+
+function renderCamList() {
+  document.getElementById('camList').innerHTML = availCams.map(cam => `
+    <div class="cam-item ${cam.index === selCamIdx ? 'sel' : ''}" onclick="selectCam(${cam.index})">
+      <div class="cam-ico">${cam.icon}</div>
+      <div class="cam-info">
+        <div class="cam-name">${cam.name}</div>
+        <div class="cam-sub-text">${cam.sub}</div>
+      </div>
+      <div class="cam-chk">${cam.index === selCamIdx ? '✓' : ''}</div>
+    </div>
+  `).join('');
+  document.getElementById('camApply').disabled = false;
+}
+
+function selectCam(idx) {
+  selCamIdx = idx;
+  renderCamList();
+}
+
+function confirmCam() {
+  const cam = availCams.find(c => c.index === selCamIdx);
+  if (!cam) return;
+
+  // Tell Python to switch the cv2.VideoCapture source
+  socket.emit('set_camera', { index: selCamIdx });
+
+  // Update HUD and settings labels immediately
+  document.getElementById('hudCam').textContent = `CAM-0${selCamIdx + 1}`;
+  document.getElementById('setCam').textContent = `${cam.name} (Index ${selCamIdx})`;
+
+  // Reload the MJPEG feed so it shows the new camera
+  const feed = document.getElementById('liveFeed');
+  feed.src = '/video_feed?t=' + Date.now();
+
+  document.getElementById('camOverlay').classList.remove('on');
+}
+
+// Close modal when clicking outside
+document.getElementById('camOverlay').addEventListener('click', function(e) {
+  if (e.target === this) this.classList.remove('on');
+});
+
+// ═══════════════════════════════════════════════════════
+// SOCKET — with reconnection and connection status
+// ═══════════════════════════════════════════════════════
+socket.on('connect',       () => { console.log('[CUSTOS] connected');    setConnStatus(true);  });
+socket.on('disconnect',    () => { console.log('[CUSTOS] disconnected'); setConnStatus(false); });
+socket.on('connect_error', () => setConnStatus(false));
+socket.on('risk_update', onUpdate);
+socket.on('tamper', d => {
+  showBanner('CAMERA TAMPER DETECTED', 'Camera obstructed at ' + d.time);
+  playAlertSound('tamper');
+  alertsData.unshift({ time:d.time, score:100, events:['CAMERA TAMPERED!'], snapshot:'', clip:d.clip||'', resolved:false });
+  renderTl(alertsData.slice(0,8)); renderAlertsList(); refreshEvIfOpen();
+  document.getElementById('notifPip').classList.add('on');
+});
+socket.on('alert_resolved', () => {
+  const a=alertsData.find(x=>!x.resolved); if(a) a.resolved=true;
+  renderTl(alertsData.slice(0,8)); renderAlertsList();
+  dismissed = false;
+  const b=document.getElementById('alertBanner');
+  if(b.classList.contains('on')){
+    b.style.background='var(--green-bg)'; b.style.borderBottomColor='rgba(34,197,94,0.2)';
+    document.getElementById('abTitle').style.color='var(--green)';
+    document.getElementById('abTitle').textContent='Alert Resolved — Person Left Zone';
+    document.getElementById('abSub').textContent='Risk returning to safe level';
+    document.getElementById('abIcon').textContent='✓';
+    document.getElementById('abIcon').style.background='var(--green)';
+    setTimeout(()=>{ b.classList.remove('on'); b.style=''; }, 4000);
+  }
+});
+function setConnStatus(ok) {
+  // Sidebar connection pip — green when live, amber when reconnecting
+  const pip = document.querySelector('.s-pip.on');
+  const lbl = document.querySelector('.sb-status span');
+  if (pip) pip.style.background = ok ? '' : 'var(--amber)';
+  if (lbl) lbl.style.color      = ok ? '' : 'var(--amber)';
+}
+
+// ═══════════════════════════════════════════════════════
+// NAVIGATION
+// ═══════════════════════════════════════════════════════
+function gotoPage(p) {
+  document.querySelectorAll('.page').forEach(x => x.classList.remove('on'));
+  document.querySelectorAll('.ni').forEach(x => x.classList.remove('on'));
+  document.getElementById('page-' + p).classList.add('on');
+  document.getElementById('ni-' + p).classList.add('on');
+  curPage = p;
+  if (p === 'analytics') initCharts();
+  if (p === 'evidence')  loadEvidence();
+  if (p === 'alerts')    renderAlertsList();
+}
+let slim = false;
+function toggleSb() {
+  slim = !slim;
+  document.getElementById('sidebar').classList.toggle('slim', slim);
+  document.getElementById('sbToggle').textContent = slim ? '▶' : '◀';
+}
+
+// ═══════════════════════════════════════════════════════
+// MAIN UPDATE
+// ═══════════════════════════════════════════════════════
+function onUpdate(d) {
+  // Capture real camera dims from server on first update
+  if (d.cam_w && d.cam_h && !camDimsReady) {
+    camW=d.cam_w; camH=d.cam_h; camDimsReady=true;
+    console.log(`[CUSTOS] Camera: ${camW}×${camH}`);
+  }
+  const score = d.score || 0;
+  rHist.push({ t: new Date().toTimeString().slice(0,5), v: score });
+  if (rHist.length > 60) rHist.shift();
+  if (score > peakRisk) peakRisk = score;
+
+  let col, lbl, lvc, dotc, bc;
+  if      (score < 40) { col='#22c55e'; lbl='SAFE';       lvc='lv-safe';  dotc='';  bc='safe';  }
+  else if (score < 60) { col='#f59e0b'; lbl='WATCH';      lvc='lv-watch'; dotc='w'; bc='watch'; }
+  else if (score < 80) { col='#f97316'; lbl='SUSPICIOUS'; lvc='lv-sus';   dotc='s'; bc='sus';   }
+  else                 { col='#ef4444'; lbl='CRITICAL';   lvc='lv-crit';  dotc='c'; bc='crit';  }
+
+  ['riskNum','monRiskNum'].forEach(id=>{const e=document.getElementById(id);if(e){e.textContent=Math.round(score);e.style.color=col;}});
+  ['riskFill','monRiskFill'].forEach(id=>{const e=document.getElementById(id);if(e){e.style.width=score+'%';e.style.background=col;}});
+  ['riskBadge','monBadge'].forEach(id=>{const e=document.getElementById(id);if(e){e.className='risk-badge '+bc;e.textContent='● '+lbl;}});
+  const lp=document.getElementById('levelPill'); lp.className='level-pill '+lvc; lp.textContent='● '+lbl;
+  document.getElementById('riskDot').className='risk-ind '+dotc;
+  if(d.mode) document.getElementById('modeTag').textContent=d.mode+' MODE';
+
+  const active={};
+  (d.event_log||[]).forEach(e=>{
+    if(e.includes('PACING'))  active.PACING=true;
+    if(e.includes('CROUCH'))  active.CROUCHING=true;
+    if(e.includes('linger'))  active.LINGERING=true;
+    if(e.includes('FROZE'))   active.FREEZE=true;
+    if(e.includes('RUNNING')) active.RUNNING=true;
+    if(e.includes('circling'))active.CIRCLING=true;
+  });
+  const bHtml=['PACING','CROUCHING','LINGERING','FREEZE','RUNNING','CIRCLING']
+    .map(k=>`<span class="chip ${active[k]?'active':''}">${k}</span>`).join('');
+  ['behChips','monBeh'].forEach(id=>{const e=document.getElementById(id);if(e)e.innerHTML=bHtml;});
+
+  const reasons=getRs(d.event_log||[]);
+  const wp=document.getElementById('whyPanel');
+  wp.innerHTML=reasons.length
+    ?reasons.map(r=>`<div class="why-row on"><div class="why-pip on"></div>${r}</div>`).join('')
+    :'<div class="empty-msg">No active alerts</div>';
+
+  if(d.alert_active&&!dismissed){
+    const isH=(d.event_log||[]).some(e=>e.includes('HIGH'));
+    showBanner(isH?'HIGH ZONE BREACH — Person Detected':'SUSPICIOUS ACTIVITY DETECTED',
+      (reasons[0]||'Suspicious activity')+' · Score: '+Math.round(score));
+    document.getElementById('notifPip').classList.add('on');
+    maybePlayAlert(true, false);
+  } else if(!d.alert_active){
+    dismissed=false;
+    maybePlayAlert(false, d.tamper||false);
+  }
+  if(d.tamper) maybePlayAlert(false, true);
+
+  if(d.alerts&&d.alerts.length){
+    alertsData=d.alerts;const n=d.alerts.length;
+    document.getElementById('stAlerts').textContent=n;
+    document.getElementById('tlCount').textContent=n+(n!==1?' alerts':' alert');
+    const unresolved=d.alerts.filter(a=>!a.resolved).length;
+    const b=document.getElementById('alertBadge');b.textContent=unresolved;b.style.display=unresolved?'block':'none';
+    d.alerts.forEach(a=>{const h=parseInt((a.time||'0').split(':')[0]);if(!isNaN(h))aPerHr[h]++;});
+    renderTl(d.alerts.slice(0,8));
+    if(curPage==='alerts')renderAlertsList();
+  }
+  document.getElementById('stPersons').textContent=d.persons||0;
+  document.getElementById('hudFps').textContent=(d.fps||0)+' FPS';
+  document.getElementById('hudPersons').textContent=(d.persons||0)+' persons';
+  document.getElementById('monFps').textContent=(d.fps||0)+' FPS';
+  document.getElementById('anTotal').textContent=alertsData.length;
+  document.getElementById('anHigh').textContent=alertsData.filter(a=>(a.events||[]).some(e=>e.includes('HIGH'))).length;
+  document.getElementById('anPeak').textContent=peakRisk>0?Math.round(peakRisk):'—';
+  const avg=alertsData.length?Math.round(alertsData.reduce((s,a)=>s+(a.score||0),0)/alertsData.length):0;
+  document.getElementById('anAvg').textContent=avg;
+  if(curPage==='analytics')updateCharts();
+  document.getElementById('stZones').textContent=zones.length;
+  document.getElementById('setZones').textContent=zones.length;
+}
+
+function getRs(evts){
+  const o=[];
+  evts.forEach(e=>{
+    if(e.includes('entered HIGH'))o.push('Person entered restricted area');
+    else if(e.includes('PACING'))o.push('Person pacing back and forth');
+    else if(e.includes('CROUCH'))o.push('Person crouching in zone');
+    else if(e.includes('FROZE'))o.push('Person froze suddenly');
+    else if(e.includes('circling'))o.push('Person repeatedly returning');
+    else if(e.includes('linger'))o.push('Person lingering too long');
+    else if(e.includes('RUNNING'))o.push('Person running in zone');
+    else if(e.includes('TAMPER'))o.push('Camera tamper detected');
+  });
+  return[...new Set(o)];
+}
+
+function renderTl(alerts){
+  const el=document.getElementById('dashTl');
+  if(!alerts.length){el.innerHTML='<div class="empty-msg">No alerts yet</div>';return;}
+  el.innerHTML=alerts.map((a,i)=>{
+    const isH=(a.events||[]).some(e=>e.includes('HIGH')),isT=(a.events||[]).some(e=>e.includes('TAMPER'));
+    const desc=getRs(a.events||[])[0]||'Suspicious activity',tl=isT?'TAMPER':isH?'HIGH':'OBS';
+    const isR=a.resolved;
+    return`<div class="tl-item ${isH||isT?'':'obs'}" onclick="openEvidence(${i})" style="${isR?'opacity:0.7':''}">
+      <div class="tl-top"><span class="tl-type ${isH||isT?'h':'o'}" style="${isR?'background:var(--green-bg);color:var(--green)':''}">${isR?'✓ '+tl:tl}</span><span class="tl-time">${a.time}</span></div>
+      <div class="tl-desc">${desc}</div>
+      <div class="tl-score">Score <em>${a.score}</em></div>
+    </div>`;
+  }).join('');
+}
+
+function showBanner(t,s){document.getElementById('abTitle').textContent=t;document.getElementById('abSub').textContent=s;document.getElementById('alertBanner').classList.add('on');}
+function dismissBanner(){dismissed=true;document.getElementById('alertBanner').classList.remove('on');}
+function demoAlert(){
+  playAlertSound('alert');
+  showBanner('HIGH ZONE BREACH — DEMO','Risk Score: 100 · Demo mode');
+  ['riskNum','monRiskNum'].forEach(id=>{const e=document.getElementById(id);if(e){e.textContent='100';e.style.color='#ef4444';}});
+  ['riskFill','monRiskFill'].forEach(id=>{const e=document.getElementById(id);if(e){e.style.width='100%';e.style.background='#ef4444';}});
+  ['riskBadge','monBadge'].forEach(id=>{const e=document.getElementById(id);if(e){e.className='risk-badge crit';e.textContent='● CRITICAL';}});
+  document.getElementById('levelPill').className='level-pill lv-crit';
+  document.getElementById('levelPill').textContent='● CRITICAL';
+  document.getElementById('riskDot').className='risk-ind c';
+  document.getElementById('notifPip').classList.add('on');
+}
+function demoTamper(){playAlertSound('tamper');showBanner('CAMERA TAMPER DETECTED — DEMO','Obstruction simulated · '+new Date().toTimeString().slice(0,8));}
+
+function filterAlerts(f,btn){
+  afilt=f;document.querySelectorAll('.fbt').forEach(b=>b.classList.remove('sel'));btn.classList.add('sel');renderAlertsList();
+}
+function renderAlertsList(){
+  const el=document.getElementById('alertsList');
+  let data=alertsData;
+  if(afilt!=='all')data=data.filter(a=>{
+    const ev=a.events||[];
+    if(afilt==='RESOLVED')return a.resolved;
+    if(afilt==='HIGH')return ev.some(e=>e.includes('HIGH'));
+    if(afilt==='TAMPER')return ev.some(e=>e.includes('TAMPER'));
+    if(afilt==='OBSERVATION')return!ev.some(e=>e.includes('HIGH')||e.includes('TAMPER'));
+    return true;
+  });
+  if(!data.length){el.innerHTML='<div class="empty-msg" style="padding:60px 0;">No alerts match this filter</div>';return;}
+  el.innerHTML=data.map(a=>{
+    const isH=(a.events||[]).some(e=>e.includes('HIGH')),isT=(a.events||[]).some(e=>e.includes('TAMPER'));
+    const reasons=getRs(a.events||[]),tl=isT?'TAMPER':isH?'HIGH':'OBSERVATION',idx=alertsData.indexOf(a);
+    return`<div class="alert-card ${isT?'tamper':isH?'':'obs'}">
+      <div class="ac-top">
+        <div class="ac-meta"><div class="ac-type ${isH||isT?'':'o'}">${tl} — ${isT?'Camera Tampered':isH?'Intrusion':'Suspicious Behaviour'}</div><div class="ac-desc">${reasons[0]||'Suspicious activity detected'}</div></div>
+        <div class="ac-time">${a.time}</div><div class="ac-score">${a.score}</div>
+      </div>
+      <div class="ac-bot">
+        <div class="ac-tags">${reasons.map(r=>`<span class="ac-tag">${r}</span>`).join('')}</div>
+        <button class="view-ev" onclick="openEvidence(${idx})">View Evidence</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+
+function fmtTs(raw){
+  const m=raw.match(/(\d{4})(\d{2})(\d{2})_(\d{2})(\d{2})(\d{2})/);
+  if(!m)return raw;
+  let h=parseInt(m[4]);const min=m[5],sec=m[6],ap=h>=12?'PM':'AM';h=h%12||12;
+  return`${m[3]}/${m[2]}/${m[1]} ${h}:${min}:${sec} ${ap}`;
+}
+function refreshEvIfOpen(){if(curPage==='evidence')loadEvidence();}
+async function loadEvidence(){
+  const g=document.getElementById('evGrid');g.innerHTML='<div class="ev-empty">Loading…</div>';
+  try{
+    const r=await fetch('/list_evidence');const d=await r.json();
+    if(!d.files||!d.files.length){g.innerHTML='<div class="ev-empty">No evidence yet — alerts auto-save here</div>';return;}
+    const clips=d.files.filter(f=>f.name.endsWith('.mp4'));
+    const images=d.files.filter(f=>!f.name.endsWith('.mp4'));
+    const rc=f=>{
+      const isT=f.name.includes('pretamper'),isV=f.name.endsWith('.mp4');
+      const badge=isT?'tamper':'alert',bt=isT?'TAMPER':'ALERT';
+      const thumb=isV
+        ?`<div style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;font-size:28px;background:var(--bg2)">🎬</div>`
+        :`<img src="/snapshots/${f.name}?t=${Date.now()}" style="width:100%;height:100%;object-fit:cover;" onerror="this.parentElement.innerHTML='<div style=width:100%;height:100%;display:flex;align-items:center;justify-content:center;background:var(--bg2);font-size:28px>📷</div>'">`;
+      const ts=fmtTs(f.name.replace(/^(alert_|pretamper_)/,'').replace(/\.(jpg|mp4)$/,''));
+      return`<div class="ev-card" onclick="openFile('${f.name}')">
+        <div class="ev-thumb">${thumb}<div class="ev-play">${isV?'▶':'🔍'}</div><span class="ev-badge ${badge}">${bt}</span></div>
+        <div class="ev-info"><div class="ev-name">${isT?'Tamper Clip':'Alert Snapshot'}</div><div class="ev-ts">${ts}</div></div>
+      </div>`;
+    };
+    g.innerHTML=`<div class="ev-sect">🎬 Video Clips (${clips.length})</div>${clips.length?clips.map(rc).join(''):'<div class="ev-empty" style="grid-column:1/-1;padding:12px 0;">No clips yet</div>'}<div class="ev-sect">📷 Alert Snapshots (${images.length})</div>${images.length?images.map(rc).join(''):'<div class="ev-empty" style="grid-column:1/-1;padding:12px 0;">No snapshots yet</div>'}`;
+  }catch(e){g.innerHTML='<div class="ev-empty">Could not load — server starting up</div>';}
+}
+function openEvidence(idx){
+  const a=alertsData[idx];if(!a)return;
+  const isT=(a.events||[]).some(e=>e.includes('TAMPER'));
+  if(isT&&a.clip)openFile(a.clip);else if(a.snapshot)openFile(a.snapshot);
+  else{document.getElementById('modalBg').classList.add('on');showMErr();}
+}
+function openFile(fname){
+  const bg=document.getElementById('modalBg'),img=document.getElementById('mImg'),vid=document.getElementById('mVid'),err=document.getElementById('mErr');
+  bg.classList.add('on');img.style.display='none';vid.style.display='none';err.style.display='none';
+  document.getElementById('mMeta').textContent=fname;
+  if(fname.endsWith('.mp4')){
+    document.getElementById('modalTitle').textContent='Tamper Video Clip';err.style.display='block';
+    err.innerHTML=`<div style="font-size:28px;margin-bottom:12px;">🎬</div><div style="font-size:13px;font-weight:600;color:var(--txt);margin-bottom:6px;">${fname}</div><div style="font-size:11px;color:var(--txt3);margin-bottom:18px;">Browser cannot play this codec directly</div><a href="/snapshots/${fname}" download="${fname}" style="font-size:12px;font-weight:700;padding:10px 22px;border-radius:12px;border:2px solid var(--blue);color:var(--blue);text-decoration:none;background:var(--blue-bg);">⬇ Download Clip</a>`;
+  }else{document.getElementById('modalTitle').textContent='Alert Snapshot';img.style.display='block';img.src='/snapshots/'+fname+'?t='+Date.now();}
+}
+function showMErr(){document.getElementById('mImg').style.display='none';document.getElementById('mVid').style.display='none';document.getElementById('mErr').style.display='block';}
+function closeModal(){document.getElementById('modalBg').classList.remove('on');document.getElementById('mVid').pause();document.getElementById('mImg').src='';document.getElementById('mVid').src='';}
+
+// ═══════════════════════════════════════════════════════
+// CHARTS
+// ═══════════════════════════════════════════════════════
+const cOpts={responsive:true,maintainAspectRatio:false,plugins:{legend:{display:false},tooltip:{backgroundColor:'#fff',titleColor:'#1a2236',bodyColor:'#4a5568',titleFont:{family:'Barlow Condensed',size:12,weight:'800'},bodyFont:{family:'DM Mono',size:11},borderColor:'rgba(0,0,0,0.08)',borderWidth:1,padding:10}},scales:{x:{grid:{color:'rgba(0,0,0,0.04)'},ticks:{color:'#8a96a8',font:{family:'DM Mono',size:9}}},y:{grid:{color:'rgba(0,0,0,0.04)'},ticks:{color:'#8a96a8',font:{family:'DM Mono',size:9}}}}};
+function initCharts(){
+  if(rChart&&aChart){updateCharts();return;}
+  rChart=new Chart(document.getElementById('riskChart'),{type:'line',data:{labels:[],datasets:[{data:[],fill:true,borderColor:'#3b7ff5',borderWidth:2.5,backgroundColor:'rgba(59,127,245,0.08)',pointRadius:3,pointBackgroundColor:'#3b7ff5',tension:0.4}]},options:{...cOpts,scales:{x:{...cOpts.scales.x},y:{...cOpts.scales.y,min:0,max:100}}}});
+  aChart=new Chart(document.getElementById('alertChart'),{type:'bar',data:{labels:Array.from({length:24},(_,i)=>i+':00'),datasets:[{data:new Array(24).fill(0),backgroundColor:'rgba(239,68,68,0.2)',borderColor:'#ef4444',borderWidth:2,borderRadius:6}]},options:cOpts});
+  updateCharts();
+}
+function updateCharts(){
+  if(!rChart||!aChart)return;
+  const l=rHist.slice(-30);rChart.data.labels=l.map(p=>p.t);rChart.data.datasets[0].data=l.map(p=>p.v);rChart.update('none');
+  aChart.data.datasets[0].data=[...aPerHr];aChart.update('none');
+}
+
+// ═══════════════════════════════════════════════════════
+// ZONE DRAWING
+// KEY FIX: Uses real camera frame size from server (camW/camH)
+// instead of feedEl.naturalWidth — which returns 0 on MJPEG streams.
+// Letterbox offsets computed correctly for object-fit:contain layout.
+// ═══════════════════════════════════════════════════════
+const canvas=document.getElementById('zoneCanvas'),ctx=canvas.getContext('2d');
+const feedEl=document.getElementById('liveFeed'),fa=document.getElementById('feedArea');
+
+function resizeCanvas(){canvas.width=fa.clientWidth;canvas.height=fa.clientHeight;redraw();}
+window.addEventListener('resize',resizeCanvas);
+feedEl.addEventListener('load',()=>{ setTimeout(resizeCanvas,100); });
+setTimeout(resizeCanvas,300); setTimeout(resizeCanvas,900);
+
+function toggleDraw(){
+  drawMode=!drawMode;const b=document.getElementById('btnDraw'),r=document.getElementById('ztRow');
+  b.textContent=drawMode?'Drawing…':'Draw Zone';b.classList.toggle('drawing',drawMode);
+  r.classList.toggle('on',drawMode);canvas.classList.toggle('draw',drawMode);fa.classList.toggle('cross',drawMode);
+}
+function setZT(t){
+  zoneType=t;
+  document.getElementById('ztHigh').className='zt'+(t==='HIGH'?' high':'');
+  document.getElementById('ztObs').className='zt'+(t==='OBSERVATION'?' obs':'');
+}
+canvas.addEventListener('mousedown',e=>{
+  if(!drawMode)return;
+  const r=canvas.getBoundingClientRect();
+  sx=e.clientX-r.left; sy=e.clientY-r.top;
+  drawing=true;
+});
+canvas.addEventListener('mousemove',e=>{
+  if(!drawing)return;
+  const r=canvas.getBoundingClientRect();
+  cx=e.clientX-r.left; cy=e.clientY-r.top;
+  redraw();prevZone();
+});
+canvas.addEventListener('mouseup',e=>{
+  if(!drawing)return;
+  drawing=false;
+  const r=canvas.getBoundingClientRect();
+  cx=e.clientX-r.left; cy=e.clientY-r.top;
+  if(Math.abs(cx-sx)>20&&Math.abs(cy-sy)>20){
+    zones.push({x1:Math.min(sx,cx),y1:Math.min(sy,cy),x2:Math.max(sx,cx),y2:Math.max(sy,cy),type:zoneType});
+    document.getElementById('stZones').textContent=zones.length;
+    document.getElementById('zbStat').textContent=zones.length+' zone(s) drawn';
+    redraw();sendZones();
+  }
+});
+function redraw(){
+  ctx.clearRect(0,0,canvas.width,canvas.height);
+  zones.forEach((z,i)=>{
+    const isH=z.type==='HIGH',col=isH?'#ef4444':'#f97316';
+    ctx.fillStyle=isH?'rgba(239,68,68,0.13)':'rgba(249,115,22,0.13)';
+    ctx.fillRect(z.x1,z.y1,z.x2-z.x1,z.y2-z.y1);
+    ctx.strokeStyle=col;ctx.lineWidth=2;ctx.strokeRect(z.x1,z.y1,z.x2-z.x1,z.y2-z.y1);
+    ctx.lineWidth=3;const L=12;
+    [[z.x1,z.y1,1,1],[z.x2,z.y1,-1,1],[z.x1,z.y2,1,-1],[z.x2,z.y2,-1,-1]].forEach(([px,py,dx,dy])=>{
+      ctx.beginPath();ctx.moveTo(px,py);ctx.lineTo(px+dx*L,py);ctx.stroke();
+      ctx.beginPath();ctx.moveTo(px,py);ctx.lineTo(px,py+dy*L);ctx.stroke();
+    });
+    ctx.fillStyle=col;ctx.font='700 12px Barlow Condensed,sans-serif';
+    const lbl=`Z${i+1} ${z.type}`,tw=ctx.measureText(lbl).width;
+    ctx.beginPath();ctx.roundRect(z.x1,z.y1-22,tw+16,22,6);ctx.fill();
+    ctx.fillStyle='#fff';ctx.fillText(lbl,z.x1+8,z.y1-6);
+  });
+}
+function prevZone(){
+  // FIX: call redraw() first so ghost zones don't accumulate while dragging
+  redraw();
+  const col=zoneType==='HIGH'?'#ef4444':'#f97316';
+  ctx.strokeStyle=col;ctx.lineWidth=2;ctx.setLineDash([6,4]);
+  ctx.strokeRect(sx,sy,cx-sx,cy-sy);ctx.setLineDash([]);
+  ctx.fillStyle=zoneType==='HIGH'?'rgba(239,68,68,0.07)':'rgba(249,115,22,0.07)';
+  ctx.fillRect(sx,sy,cx-sx,cy-sy);
+}
+function clearZones(){
+  zones=[];ctx.clearRect(0,0,canvas.width,canvas.height);
+  document.getElementById('stZones').textContent='0';
+  document.getElementById('zbStat').textContent='Draw zones then start';
+  sendZones(false);
+}
+
+// ── COORDINATE MAPPING ──────────────────────────────────
+// Feed uses object-fit:contain → compute letterbox offsets.
+// camW/camH = real camera frame dimensions from server.
+// Canvas pixel → camera pixel: subtract letterbox offset, then scale.
+function getLetterbox(){
+  const cW=canvas.width, cH=canvas.height;
+  const ar=camW/camH, bar=cW/cH;
+  let rW,rH,oX,oY;
+  if(ar>bar){rW=cW;rH=cW/ar;oX=0;oY=(cH-rH)/2;}
+  else{rH=cH;rW=cH*ar;oX=(cW-rW)/2;oY=0;}
+  return {rW,rH,oX,oY};
+}
+function sendZones(mon){
+  if(mon===undefined)mon=monitoring;
+  const {rW,rH,oX,oY}=getLetterbox();
+  const scX=camW/rW, scY=camH/rH;
+  const sc=zones.map(z=>{
+    // The feed is CSS-flipped (scaleX(-1)) but Python sees the real unflipped frame.
+    // Mirror the canvas X coords before sending so zones align with Python's frame.
+    const rx1=canvas.width-z.x2, rx2=canvas.width-z.x1;
+    return [
+      Math.max(0,    Math.round((rx1-oX)*scX)),
+      Math.max(0,    Math.round((z.y1-oY)*scY)),
+      Math.min(camW, Math.round((rx2-oX)*scX)),
+      Math.min(camH, Math.round((z.y2-oY)*scY))
+    ];
+  });
+  socket.emit('set_zones',{zones:sc,types:zones.map(z=>z.type==='HIGH'?'HIGH':'WATCH'),monitoring:mon});
+}
+function startMonitoring(){
+  if(!zones.length){document.getElementById('zbStat').textContent='⚠ Draw a zone first';return;}
+  monitoring=true;sendZones(true);
+  const b=document.getElementById('btnStart');b.textContent='■ Active';b.classList.add('active');
+  document.getElementById('zbStat').textContent='AI detection running';
+  if(drawMode)toggleDraw();
+}
+function feedErr(){document.getElementById('feedOffline').classList.add('on');}
+function feedOk(){
+  document.getElementById('feedOffline').classList.remove('on');
+  // Fallback: grab natural dims if server hasn't sent them yet
+  if(!camDimsReady && feedEl.naturalWidth>0){
+    camW=feedEl.naturalWidth; camH=feedEl.naturalHeight; camDimsReady=true;
+  }
+}
+function tick(){
+  const t=new Date().toTimeString().slice(0,8);
+  document.getElementById('topClock').textContent=t;
+  document.getElementById('hudClock').textContent=t;
+  const s=Math.floor((Date.now()-t0)/1000),m=Math.floor(s/60),h=Math.floor(m/60);
+  document.getElementById('stUptime').textContent=h>0?h+'h '+(m%60)+'m':m+'m';
+}
+setInterval(tick,1000);tick();
+
+// ═══════════════════════════════════════════════════════
+// ALERT SOUND — Web Audio API (no file needed)
+// Two sounds: sharp alert beep for intrusions, lower tone for tamper
+// ═══════════════════════════════════════════════════════
+let audioCtx = null;
+function getAudioCtx() {
+  if (!audioCtx) audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  return audioCtx;
+}
+
+function playAlertSound(type = 'alert') {
+  try {
+    const ctx = getAudioCtx();
+    const now = ctx.currentTime;
+
+    if (type === 'alert') {
+      // Three sharp rising beeps — urgent, attention-grabbing
+      [0, 0.22, 0.44].forEach((offset, i) => {
+        const osc  = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain); gain.connect(ctx.destination);
+        osc.type = 'square';
+        osc.frequency.setValueAtTime(880 + i * 220, now + offset);
+        gain.gain.setValueAtTime(0, now + offset);
+        gain.gain.linearRampToValueAtTime(0.35, now + offset + 0.01);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + offset + 0.18);
+        osc.start(now + offset);
+        osc.stop(now + offset + 0.2);
+      });
+    } else if (type === 'tamper') {
+      // Low pulsing tone — different from alert so you know it's tamper
+      [0, 0.3, 0.6].forEach(offset => {
+        const osc  = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.connect(gain); gain.connect(ctx.destination);
+        osc.type = 'sawtooth';
+        osc.frequency.setValueAtTime(220, now + offset);
+        gain.gain.setValueAtTime(0, now + offset);
+        gain.gain.linearRampToValueAtTime(0.3, now + offset + 0.02);
+        gain.gain.exponentialRampToValueAtTime(0.001, now + offset + 0.25);
+        osc.start(now + offset);
+        osc.stop(now + offset + 0.28);
+      });
+    }
+  } catch(e) {
+    console.warn('[SOUND] Audio error:', e);
+  }
+}
+
+// Track last alert state to avoid repeating sound every socket tick
+let _lastAlertState = false;
+function maybePlayAlert(alertActive, isTamper) {
+  if (isTamper && !_lastAlertState) {
+    playAlertSound('tamper');
+    _lastAlertState = true;
+  } else if (alertActive && !_lastAlertState) {
+    playAlertSound('alert');
+    _lastAlertState = true;
+  } else if (!alertActive && !isTamper) {
+    _lastAlertState = false;
+  }
+}
+</script>
+</body>
+</html>
